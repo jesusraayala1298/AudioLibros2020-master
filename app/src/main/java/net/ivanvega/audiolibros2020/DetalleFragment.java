@@ -35,8 +35,7 @@ import java.io.IOException;
  * create an instance of this fragment.
  */
 public class DetalleFragment extends Fragment
-                            implements View.OnTouchListener
-{
+                            implements View.OnTouchListener {
 
     public static String ARG_ID_LIBRO = "id_libro";
 
@@ -49,6 +48,7 @@ public class DetalleFragment extends Fragment
     private String mParam1;
     private String mParam2;
 
+    //OBJETOS QUE DEFINEN EL SERVICIO, EL MEDIACONTROLLER Y UN INTENT PARA EL MANEJO DEL SERVICIO
     static MiServicio  miServicio;
     static MediaController mediaController;
     Intent iSer;
@@ -87,7 +87,6 @@ public class DetalleFragment extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         mediaController = new MediaController(getActivity());
         miServicio= new MiServicio();
        View vista = inflater.inflate(R.layout.fragment_detalle, container, false);
@@ -110,6 +109,7 @@ public class DetalleFragment extends Fragment
         ponInfoLibro(id, getView());
     }
 
+    //METODO QUE REALIZA LA CONEXION CON EL SERVICIO
     ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
@@ -132,7 +132,7 @@ public class DetalleFragment extends Fragment
     };
 
     private void ponInfoLibro(int id, View vista) {
-
+        //OBJETO QUE HACE REFERENCIA A NUESTRO SERVICIO
         iSer = new Intent(getContext(), MiServicio.class);
         Libro libro =
                 Libro.ejemploLibros().elementAt(id);
@@ -140,6 +140,8 @@ public class DetalleFragment extends Fragment
         ((TextView) vista.findViewById(R.id.autor)).setText(libro.autor);
         ((ImageView) vista.findViewById(R.id.portada)).setImageResource(libro.recursoImagen);
 
+        //IMPLEMENTACION DEL SERVICIO, ALGUNAS VALIDACIONES Y USO DEL MEDIACONTROLLER PARA EL MANEJO VISUAL DEL AUDIO
+        //
         try {
             if (id == miServicio.id) {
                 if (!miServicio.isPlaying()) {
@@ -166,13 +168,13 @@ public class DetalleFragment extends Fragment
 
         vista.setOnTouchListener(this);
     }
-
+    //METODO PARA QUE EL MEDIACONTROLLER APARESCA CUANDO SE DE CLIC EN LA PANTALLA DEL MOVIL
     @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
         mediaController.show();
         return false;
     }
-
+    //METODO PARA CONTROLAR LA PAUSA DEL AUDIO
     @Override
     public void onResume() {
         super.onResume();
@@ -180,7 +182,8 @@ public class DetalleFragment extends Fragment
            mediaController.show(50000);
         }
     }
-
+    //METODO PARA INICIALIZAR EL MEDIACONTROLLER  VINCULARLO CON EL MEDIAPLAYER DEL SERVICIO Y PROPORCIONARLE
+    //ALGUNAS CARACTERISTICAS VISUALES.
     public void control() {
         mediaController.setMediaPlayer(miServicio);
         mediaController.setAnchorView(getView());
