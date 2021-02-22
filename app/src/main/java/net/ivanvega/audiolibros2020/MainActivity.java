@@ -18,7 +18,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
     }
 
     @Override
@@ -79,6 +78,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
-
+    @Override
+public void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    int id=intent.getIntExtra("ID",0);
+    mostrarDetalle(id);
+}
 
 }

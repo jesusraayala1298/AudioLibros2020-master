@@ -55,7 +55,6 @@ public class AdaptadorLibros extends  RecyclerView.Adapter<AdaptadorLibros.ViewH
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Libro libro = vectorLibros.get(position);
-
         holder.portada.setImageResource(libro.recursoImagen);
         holder.titulo.setText(libro.titulo);
     }

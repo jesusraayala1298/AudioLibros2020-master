@@ -5,4 +5,5 @@
 
     <string name="channel_name">NOMBRECANAL</string>
     <string name="channel_description">CANALDESCRIPCION</string>
+    <string name="t_tulo">Titulo</string>
 </resources>

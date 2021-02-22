@@ -4,6 +4,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
@@ -17,9 +18,11 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.MediaController;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import net.ivanvega.audiolibros2020.services.MiIntentService;
 import net.ivanvega.audiolibros2020.services.MiServicio;
@@ -32,11 +35,9 @@ import java.io.IOException;
  * create an instance of this fragment.
  */
 public class DetalleFragment extends Fragment
-                            implements View.OnTouchListener,
-                            MediaPlayer.OnPreparedListener,
-        MediaController.MediaPlayerControl
+                            implements View.OnTouchListener
 {
-    MiServicio  miServicio;
+
     public static String ARG_ID_LIBRO = "id_libro";
 
     // TODO: Rename parameter arguments, choose names that match
@@ -48,8 +49,8 @@ public class DetalleFragment extends Fragment
     private String mParam1;
     private String mParam2;
 
-    MediaPlayer mediaPlayer;
-    MediaController mediaController;
+    static MiServicio  miServicio;
+    static MediaController mediaController;
     Intent iSer;
 
     public DetalleFragment() {
@@ -87,7 +88,8 @@ public class DetalleFragment extends Fragment
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-
+        mediaController = new MediaController(getActivity());
+        miServicio= new MiServicio();
        View vista = inflater.inflate(R.layout.fragment_detalle, container, false);
 
         Bundle args = getArguments();
@@ -115,7 +117,7 @@ public class DetalleFragment extends Fragment
                     (MiServicio.MiServicioBinder) iBinder ;
              miServicio =
                     miServicioBinder.getService();
-
+            control();
             Log.d("MSE", "GFrameno enlazado al seervicio " + componentName);
 
              int randf =  miServicio.getRandomNumber();
@@ -131,131 +133,59 @@ public class DetalleFragment extends Fragment
 
     private void ponInfoLibro(int id, View vista) {
 
-        //servicio iniciado
-        //servicio de primer plano
         iSer = new Intent(getContext(), MiServicio.class);
-        getActivity().startService(iSer);
-
-        getActivity().bindService(iSer, serviceConnection, Context.BIND_AUTO_CREATE);
-
-        Intent miIS = new Intent(getContext(), MiIntentService.class);
-        getActivity().startService(miIS);
-
-
-
         Libro libro =
                 Libro.ejemploLibros().elementAt(id);
         ((TextView) vista.findViewById(R.id.titulo)).setText(libro.titulo);
         ((TextView) vista.findViewById(R.id.autor)).setText(libro.autor);
         ((ImageView) vista.findViewById(R.id.portada)).setImageResource(libro.recursoImagen);
 
-        vista.setOnTouchListener(this);
-
-        if (mediaPlayer != null){
-            mediaPlayer.release();
-        }
-        mediaPlayer = new MediaPlayer();
-        mediaPlayer.setOnPreparedListener(this);
-        mediaController = new MediaController(getActivity());
-        Uri audio = Uri.parse(libro.urlAudio);
         try {
-            mediaPlayer.setDataSource(getActivity(), audio);
-            mediaPlayer.prepareAsync();
-        } catch (IOException e) {
-            Log.e("Audiolibros", "ERROR: No se puede reproducir "+audio,e);
+            if (id == miServicio.id) {
+                if (!miServicio.isPlaying()) {
+                    iSer.putExtra("URL", libro.urlAudio);
+                    iSer.putExtra("ID", id);
+                    getActivity().startService(iSer);
+                    getActivity().bindService(iSer, serviceConnection, Context.BIND_AUTO_CREATE);
+                } else {
+                    mediaController.show(50000);
+                }
+            } else {
+                miServicio.onStop();
+                iSer.putExtra("URL", libro.urlAudio);
+                iSer.putExtra("ID", id);
+                getActivity().startService(iSer);
+                getActivity().bindService(iSer, serviceConnection, Context.BIND_AUTO_CREATE);
+            }
+        }catch(Exception e){
+            iSer.putExtra("URL", libro.urlAudio);
+            iSer.putExtra("ID",id);
+            getActivity().startService(iSer);
+            getActivity().bindService(iSer, serviceConnection, Context.BIND_AUTO_CREATE);
         }
 
-
-
-
-
+        vista.setOnTouchListener(this);
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
-
-        mediaController.hide();
-        try {
-            mediaPlayer.stop();
-            mediaPlayer.release();
-        } catch (Exception e) {
-            Log.d("Audiolibros", "Error en mediaPlayer.stop()");
-        }
-
-    }
-
-        @Override
     public boolean onTouch(View view, MotionEvent motionEvent) {
         mediaController.show();
         return false;
     }
 
     @Override
-    public void onPrepared(MediaPlayer mediaPlayer) {
-        Log.d("Audiolibros", "Entramos en onPrepared de MediaPlayer");
-        mediaPlayer.start();
-        mediaController.setMediaPlayer(this);
+    public void onResume() {
+        super.onResume();
+        if(miServicio.isPlaying()){
+           mediaController.show(50000);
+        }
+    }
+
+    public void control() {
+        mediaController.setMediaPlayer(miServicio);
         mediaController.setAnchorView(getView());
         mediaController.setEnabled(true);
-        mediaController.show();
-    }
-
-    @Override
-    public void start() {
-        mediaPlayer.start();
-    }
-
-    @Override
-    public void pause() {
-        mediaPlayer.pause();
-        int randf =  miServicio.getRandomNumber();
-        Log.d("MSE", "Peticion  al servicio " + randf);
-    }
-
-    @Override
-    public int getDuration() {
-        return mediaPlayer.getDuration();
-    }
-
-    @Override
-    public int getCurrentPosition() {
-        return mediaPlayer.getCurrentPosition();
-    }
-
-    @Override
-    public void seekTo(int i) {
-        mediaPlayer.seekTo(i);
-    }
-
-    @Override
-    public boolean isPlaying() {
-        return mediaPlayer.isPlaying();
-    }
-
-    @Override
-    public int getBufferPercentage() {
-        return 0;
-    }
-
-    @Override
-    public boolean canPause() {
-        return true;
-    }
-
-    @Override
-    public boolean canSeekBackward() {
-        return true;
-    }
-
-    @Override
-    public boolean canSeekForward() {
-        return true;
-    }
-
-    @Override
-    public int getAudioSessionId() {
-        return mediaPlayer.getAudioSessionId();
+        mediaController.show(50000);
     }
 
     @Override

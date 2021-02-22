@@ -1,16 +1,23 @@
 package net.ivanvega.audiolibros2020.services;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
+import android.widget.MediaController;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -18,21 +25,112 @@ import androidx.annotation.RequiresApi;
 import net.ivanvega.audiolibros2020.MainActivity;
 import net.ivanvega.audiolibros2020.R;
 
+import java.io.IOException;
 import java.util.Random;
 
-public class MiServicio extends Service {
-
-    // Binder given to clients
+//AL CREAR UN SERVICIO ES NECESARIO CREAR LA SIGUEINTE CLASE QUE EXTIENDE DE SERVICE E IMPLEMENTEAR SUS METODOS
+//CORRESPONDIENTES, ADEMAS DE ESO PARA  ESTA APLICACION ES IMPORTANTE IMPLEMENTEAR EL MediaPlayerControl Y
+//EL metodo OnPreparedListener ESTO PARA PROGRAMAR EL FUNCIONAMIENTO DEL REPRODUCTOR DE AUDIO.
+public class MiServicio extends Service implements MediaController.MediaPlayerControl, MediaPlayer.OnPreparedListener {
+    //OBJETOS PARA EL MANEJO DEL MEDIA PLAYER
+    public static MediaPlayer mediaPlayer;
     private final IBinder binder = new MiServicioBinder();
-    // Random number generator
     private final Random mGenerator = new Random();
+    //EL METODO onStop ES USADO PARA DETENER EL MEDIA PLAYER Y DETENER EL SERVICIO CUANDO TERMINE O SE PAUSE EL
+    //AUDIO
+    public void onStop() {
+        try {
+            mediaPlayer.stop();
+            mediaPlayer.reset();
+            stopSelf();
+            stopForeground(true);
+        } catch (Exception e) {
+            Log.d("Audiolibros", "Error en mediaPlayer.stop()");
+        }
+    }
+    //METODO start INICIA EL MEDIA PLAYER Y EL SERVICIO
+    @Override
+    public void start() {
+        mediaPlayer.start();
+        if (mediaPlayer.isPlaying()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                createNotificationChannel();
+                foregroundService();
+            }
+        }
+    }
+    //METODO pause ES USADO PARA DETENER MOMENTANEAMENTE EL AUDIO Y EL SERVICIO
+    @Override
+    public void pause() {
+        mediaPlayer.pause();
+        stopForeground(true);
+    }
+    //METODO PARA OBTENER LA DURACION DEL AUDIO
+    @Override
+    public int getDuration() {
+        try {
+            return mediaPlayer.getDuration();
+        }catch (Exception e){
+            return 0;
+        }
+    }
+    //METODO PARA OBTENER LA POSICION EN LA CUAL SE LE DIO PAUSA AL AUDIO
+    @Override
+    public int getCurrentPosition() {
+        try{
+    return mediaPlayer.getCurrentPosition();
+        }catch(Exception e){
+    return 0;
+        }
+    }
+    @Override
+    public void seekTo(int i) {
+        mediaPlayer.seekTo(i);
+    }
+    //METODO PARA VERIFICAR SI EL AUDIO ESTA ACTIVO
+    @Override
+    public boolean isPlaying() {
+try {
+    return mediaPlayer.isPlaying();
+}catch(Exception e){
+    return false;
+}
+    }
+    @Override
+    public int getBufferPercentage() {
+        return 0;
+    }
+
+    @Override
+    public boolean canPause() {
+        return true;
+    }
+
+    @Override
+    public boolean canSeekBackward() {
+        return true;
+    }
+
+    @Override
+    public boolean canSeekForward() {
+        return true;
+    }
+
+    @Override
+    public int getAudioSessionId() {
+        return mediaPlayer.getAudioSessionId();
+    }
+
+    @Override
+    public void onPrepared(MediaPlayer mediaPlayer) {
+        mediaPlayer.start();
+    }
 
     /**
      * Class used for the client Binder.  Because we know this service always
      * runs in the same process as its clients, we don't need to deal with IPC.
      */
     public class MiServicioBinder extends Binder {
-
         public MiServicio getService() {
             // Return this instance of LocalService so clients can call public methods
             return MiServicio.this;
@@ -44,20 +142,18 @@ public class MiServicio extends Service {
     public IBinder onBind(Intent intent) {
         return binder;
     }
-
     /** method for clients */
     public int getRandomNumber() {
         return mGenerator.nextInt(100);
     }
-
+    //METODO INICIAL CUANDO SE LANZA EL SERVICIO
     @Override
     public void onCreate() {
         super.onCreate();
-
         Log.d("MSAL", "servicio creado");
-
     }
 
+    //EL SIGUIENTE METODO ES PARA CREAR UNA CANAL PARA QUE SE MUESTRE LA NOTIFICACION EN PRIMER PLANO DEL SERVICIO
     private String CHANNEL_ID="CANALID";
     private void createNotificationChannel() {
         // Create the NotificationChannel, but only on API 26+ because
@@ -74,48 +170,44 @@ public class MiServicio extends Service {
             notificationManager.createNotificationChannel(channel);
         }
     }
-
-
+    //EL METODO onStartCommand ES EL METODO QUE INDICA LAS FUNCIONES QUE VA A REALIZAR EL SERVICIO, EN ESTE CASO INICIAR
+    //EL AUDIO A TRAVES DE UNA TAREA ASINCRONA
+    public int id;
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        //Este método se manda llamar cuando invocas el servicio con startService()
-        //tarea pesado debe ir en un subproceso y desencadenarse asquí
-
-        //startForeground(10001, new Notication.builder()   );
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            createNotificationChannel();
-            foregroundService();
-        }
-
+        String url = intent.getStringExtra("URL");
+        id = intent.getIntExtra("ID",0);
         Log.d("MSAL", "Iniciando la tarea pesada ");
-        try {
-            Thread.sleep(5000);
-
-                AsyncTask<Integer,
-                        Integer, Boolean> task = new AsyncTask<Integer, Integer, Boolean>() {
+                AsyncTask<String,
+                        String, Boolean> task = new AsyncTask<String, String, Boolean>() {
                 @Override
                 protected void onPreExecute() {
                     super.onPreExecute();
+mediaPlayer = new MediaPlayer();
                     //Inicializacion de objetos
                 }
-
+                //ESTAS SON LAS OPERACIONES QUE VA A REALIZAR EL SERVICIO MIENTRAS ESTE CORRIENDO
+                @RequiresApi(api = Build.VERSION_CODES.O)
+                @SuppressLint("WrongThread")
                 @Override
-                protected Boolean doInBackground(Integer... integers) {
-
-                    //código de tarea pesada
-                    //consultar un API web o un recurso
-
-                    for(int i=0; i < integers.length; i++){
-                        Log.d("MSAL", "Iniciando la tarea pesada " + integers[i]);
-                        onProgressUpdate(i,i);
-                    }
-
-                    return integers.length > 0;
+                protected Boolean doInBackground(String... urls) {
+                    Uri audio = Uri.parse(urls[0]);
+                    mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+                        Log.e("holi", "que pedo"+audio);
+                        mediaPlayer=MediaPlayer.create(getApplicationContext(),Uri.parse(urls[0]));
+                    mediaPlayer.setOnPreparedListener(v->{
+                        mediaPlayer.start();
+                    });
+                    mediaPlayer.setOnCompletionListener(v->{
+                        onStop();
+                    });
+                        createNotificationChannel();
+                        foregroundService();
+                    return urls.length > 0;
                 }
 
                 @Override
-                protected void onProgressUpdate(Integer... values) {
+                protected void onProgressUpdate(String... values) {
                     super.onProgressUpdate(values);
                     Log.d("MSAL", "Iniciando la tarea pesada " + values[0]);
 
@@ -129,28 +221,20 @@ public class MiServicio extends Service {
                     }
                 }
             };
-
-            task.execute(1,2,3,4);
-            
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        //stopSelf();
-        Log.d("MSAL", "Tarea pesada finalizada");
-
+                //EJECUTAR LA TAREA ASINCRONA CON EL URL DEL AUDIO
+            task.execute(url);
         return super.onStartCommand(intent, flags, startId);
     }
 
-
+    //ESTE METODO REPRESENTA LA INFORMACION QUE SE VA A MOSTRAR EN LA NOTIFICACION, INICIA EL SERVICIO DE PRIMER PLANO
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void foregroundService() {
-
         Intent notificationIntent = new Intent(this, MainActivity.class);
         notificationIntent.putExtra("rep", "Servicio Primer plano");
-
+        notificationIntent.putExtra("ID", id);
 
         PendingIntent pendingIntent =
-                PendingIntent.getActivity(this, 1002, notificationIntent, 0);
+                PendingIntent.getActivity(this, 1002, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         Notification notification =
                 new Notification.Builder(this, CHANNEL_ID)
@@ -160,14 +244,10 @@ public class MiServicio extends Service {
                         .setContentIntent(pendingIntent)
                         .setTicker("Se inicio el servicio")
                         .build();
-
-            // Notification ID cannot be 0.
              startForeground(1000, notification);
 
     }
-
-
-
+    //METODO QUE OCURRE CUANDO SE DESTRUYE O FINALIZA EL SERVICIO
     @Override
     public void onDestroy() {
         super.onDestroy();
