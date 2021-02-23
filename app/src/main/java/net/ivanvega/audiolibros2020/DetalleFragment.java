@@ -33,6 +33,7 @@ import java.io.IOException;
  * A simple {@link Fragment} subclass.
  * Use the {@link DetalleFragment#newInstance} factory method to
  * create an instance of this fragment.
+ * detalle
  */
 public class DetalleFragment extends Fragment
                             implements View.OnTouchListener {
